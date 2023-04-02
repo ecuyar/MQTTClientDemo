@@ -1,0 +1,123 @@
+﻿@page "/"
+@using MudBlazor
+@using Dtos
+@using MQTTnet
+@using MQTTnet.Client
+@using System.Text.Json
+@using System.Text;
+
+<PageTitle>Index</PageTitle>
+
+<h1>Hello, MQTT Fellows!</h1>
+
+<MudGrid>
+	<MudItem xs="6">
+		<MudTextField @bind-Value="connectionProps.ServerIp" Label="Server Ip" Adornment="Adornment.Start"
+					  HelperText="Server IP" Variant="Variant.Text"
+					  AdornmentIcon="@Icons.Material.Filled.LaptopChromebook" AdornmentColor="Color.Primary" />
+		<MudText>@connectionProps.ServerIp</MudText>
+	</MudItem>
+	<MudItem xs="6">
+		<MudTextField @bind-Value="connectionProps.Port" Label="Port" InputMode="InputMode.numeric"
+					  HelperText="8884" Variant="Variant.Text" Adornment="Adornment.Start"
+					  AdornmentIcon="@Icons.Material.Filled._60fpsSelect" AdornmentColor="Color.Primary" />
+	</MudItem>
+	<MudItem xs="6">
+		<MudTextField @bind-Value="connectionProps.Username" Label="Username"
+					  HelperText="" Variant="Variant.Text" Adornment="Adornment.Start"
+					  AdornmentIcon="@Icons.Material.Filled.Person" AdornmentColor="Color.Primary" />
+	</MudItem>
+	<MudItem xs="6">
+		<MudTextField @bind-Value="connectionProps.Password" Label="Password"
+					  HelperText="" Variant="Variant.Text" Adornment="Adornment.Start"
+					  AdornmentIcon="@Icons.Material.Filled.Password" AdornmentColor="Color.Primary" />
+	</MudItem>
+	<MudItem xs="12" Style="text-align:center">
+		<MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="false" OnClick="ConnectToServer">Connect</MudButton>
+	</MudItem>
+	<MudItem xs="12">
+		@if (IsConnected == true)
+		{
+			<MudText Color="Color.Success">Connected to the server.</MudText>
+		}
+		else if (IsConnected == false)
+		{
+			<MudText Color="Color.Error">Error!</MudText>
+			<MudText Color="Color.Error">@ErrorMessage</MudText>
+		}
+	</MudItem>
+</MudGrid>
+
+
+@code {
+	private bool? IsConnected { get; set; }
+	private string? ErrorMessage { get; set; }
+
+	ConnectionProps connectionProps = new()
+		{
+			ServerIp = "wss://a989a75157744b01a88b4876006e827d.s2.eu.hivemq.cloud:8884/mqtt",
+			Port = 8884,
+			Username = "mqttdeneme",
+			Password = "mqttdeneme",
+			ClientId = Guid.NewGuid()
+		};
+
+
+	private async Task ConnectToServer()
+	{
+		MqttFactory mqttFactory = new();
+		IMqttClient mqttClient = mqttFactory.CreateMqttClient();
+
+		var mqttOptions = new MqttClientOptionsBuilder()
+			.WithWebSocketServer(connectionProps.ServerIp)
+			.WithCredentials(connectionProps.Username, connectionProps.Password)
+			.WithClientId(connectionProps.ClientId.ToString())
+			.WithTls()
+			.Build();
+
+		MqttClientConnectResult response = new();
+		try
+		{
+			response = await mqttClient.ConnectAsync(mqttOptions);
+		}
+		catch (Exception ex)
+		{
+			IsConnected = false;
+			ErrorMessage = ex.Message;
+		}
+
+		mqttClient.ConnectedAsync += ConnectedShow_Callback;
+		mqttClient.ApplicationMessageReceivedAsync += MessageReceived_Callback;
+
+		var mqttSubscribeOptions = mqttFactory.CreateSubscribeOptionsBuilder()
+		.WithTopicFilter(f => f.WithTopic("intro"))
+		.Build();
+
+		try
+		{
+			await mqttClient.SubscribeAsync(mqttSubscribeOptions);
+			Console.WriteLine("MQTT client subscribed to \"intro\" topic.");
+		}
+		catch (Exception ex)
+		{
+			IsConnected = false;
+			ErrorMessage = ex.Message;
+		}
+	}
+
+	private async Task ConnectedShow_Callback(MqttClientConnectedEventArgs e)
+	{
+		IsConnected = true;
+		Console.WriteLine("MQTT client connected to the server.");
+		//await InvokeAsync();
+		//TODO Isconnected güncellenmiyor
+		await Task.CompletedTask;
+	}
+
+	private async Task MessageReceived_Callback(MqttApplicationMessageReceivedEventArgs e)
+	{
+		string message = Encoding.UTF8.GetString(e.ApplicationMessage.Payload);
+		Console.WriteLine($"Message from \"{e.ApplicationMessage.Topic}\" topic: " + message);
+		await Task.CompletedTask;
+	}
+}
