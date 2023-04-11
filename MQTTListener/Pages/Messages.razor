@@ -1,0 +1,59 @@
+﻿@page "/messages"
+@using MQTTnet.Client;
+@using MudBlazor
+@using Holders
+@using System.Text;
+
+<PageTitle>Messages</PageTitle>
+
+<h1>Messages</h1>
+
+<MudPaper Width="80%" Elevation="2">
+	<MudContainer Style="padding:20px;">
+		@if (CurrentMessages.Count > 0)
+		{
+			for (int i = 0; i < CurrentMessages.Count; i++)
+			{
+				<MudText>@CurrentMessages[i].MessageString</MudText>
+			}
+		}
+		else
+		{
+			<MudText>No messages yet.</MudText>
+		}
+	</MudContainer>
+</MudPaper>
+
+
+@code {
+	[CascadingParameter]
+	public List<MessageHolder.Message> CurrentMessages { get; set; } = new();
+	public EventCallback<MessageHolder.Message> CurrentMessagesChanged { get; set; }
+	[CascadingParameter]
+	public IMqttClient mqttClient { get; set; } = default!;
+
+	private MessageHolder messageHolder = new(10);
+
+	protected override Task OnInitializedAsync()
+	{
+		mqttClient.ApplicationMessageReceivedAsync += MessageReceived;
+
+		return base.OnInitializedAsync();
+	}
+
+	private async Task MessageReceived(MqttApplicationMessageReceivedEventArgs e)
+	{
+		string message = Encoding.UTF8.GetString(e.ApplicationMessage.Payload);
+		Console.WriteLine($"Message from \"{e.ApplicationMessage.Topic}\" topic: " + message);
+
+		messageHolder.AddMessage(message);
+
+		var allMessages = messageHolder.ShowMessages();
+		CurrentMessages = allMessages;
+
+		await CurrentMessagesChanged.InvokeAsync(allMessages.Last());
+		await Task.CompletedTask;
+
+	}
+
+}

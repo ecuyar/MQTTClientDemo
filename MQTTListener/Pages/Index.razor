@@ -4,7 +4,10 @@
 @using MQTTnet
 @using MQTTnet.Client
 @using System.Text.Json
-@using System.Text;
+@using System.Text
+@using Holders
+
+@inject ConnectionHolder _mqttConnection
 
 <PageTitle>Index</PageTitle>
 
@@ -51,7 +54,10 @@
 
 @code {
 	private bool? IsConnected { get; set; }
+	private EventCallback<bool> IsConnectedChanged { get; set; }
 	private string? ErrorMessage { get; set; }
+	private Messages messagePage { get; set; } = new();
+	private MessageHolder messageHolder = new(10);
 
 	ConnectionProps connectionProps = new()
 		{
@@ -82,7 +88,7 @@
 		}
 		catch (Exception ex)
 		{
-			IsConnected = false;
+			await IsConnectedChanged.InvokeAsync(false);
 			ErrorMessage = ex.Message;
 		}
 
@@ -97,19 +103,20 @@
 		{
 			await mqttClient.SubscribeAsync(mqttSubscribeOptions);
 			Console.WriteLine("MQTT client subscribed to \"intro\" topic.");
+			messagePage.mqttClient = mqttClient;
 		}
 		catch (Exception ex)
 		{
-			IsConnected = false;
+			await IsConnectedChanged.InvokeAsync(false);
 			ErrorMessage = ex.Message;
 		}
 	}
 
 	private async Task ConnectedShow_Callback(MqttClientConnectedEventArgs e)
 	{
-		IsConnected = true;
+		await IsConnectedChanged.InvokeAsync(true);
 		Console.WriteLine("MQTT client connected to the server.");
-		//await InvokeAsync();
+
 		//TODO Isconnected güncellenmiyor
 		await Task.CompletedTask;
 	}
@@ -118,6 +125,13 @@
 	{
 		string message = Encoding.UTF8.GetString(e.ApplicationMessage.Payload);
 		Console.WriteLine($"Message from \"{e.ApplicationMessage.Topic}\" topic: " + message);
+
+		messageHolder.AddMessage(message);
+
+		var allMessages = messageHolder.ShowMessages();
+		messagePage.CurrentMessages = allMessages;
+
+		await messagePage.CurrentMessagesChanged.InvokeAsync(allMessages.Last());
 		await Task.CompletedTask;
 	}
 }

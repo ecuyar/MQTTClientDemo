@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+﻿<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
 
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <Content Include="Dtos\ConnectionProps.cs" />
+    <Content Include="Holders\MessageHolder.cs" />
   </ItemGroup>
 
   <ItemGroup>
