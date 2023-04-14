@@ -46,7 +46,7 @@
 		else if (IsConnected == false)
 		{
 			<MudText Color="Color.Error">Error!</MudText>
-			<MudText Color="Color.Error">@ErrorMessage</MudText>
+			@*<MudText Color="Color.Error">@ErrorMessage</MudText>*@
 		}
 	</MudItem>
 </MudGrid>
@@ -54,10 +54,6 @@
 
 @code {
 	private bool? IsConnected { get; set; }
-	private EventCallback<bool> IsConnectedChanged { get; set; }
-	private string? ErrorMessage { get; set; }
-	private Messages messagePage { get; set; } = new();
-	private MessageHolder messageHolder = new(10);
 
 	ConnectionProps connectionProps = new()
 		{
@@ -68,9 +64,44 @@
 			ClientId = Guid.NewGuid()
 		};
 
+	protected override Task OnInitializedAsync()
+	{
+		IsConnected = _mqttConnection.IsConnected;
+		_mqttConnection.MqttClient.ConnectedAsync += ClientConnected;
+
+		return base.OnInitializedAsync();
+	}
+
+	private async void ConnectToServer()
+	{
+		await _mqttConnection.ConnectToServer("presentation");
+	}
+
+	private async Task ClientConnected(MqttClientConnectedEventArgs e)
+	{
+		IsConnected = _mqttConnection.IsConnected;
+		StateHasChanged();
+		await Task.CompletedTask;
+	}
+	/*
+	private bool? IsConnected { get; set; }
+	private EventCallback<bool> IsConnectedChanged { get; set; }
+	private string? ErrorMessage { get; set; }
+	private Messages messagePage { get; set; } = new();
+	private MessageHolder messageHolder = new(10);
+
+	ConnectionProps connectionProps = new()
+			{
+			ServerIp = "wss://a989a75157744b01a88b4876006e827d.s2.eu.hivemq.cloud:8884/mqtt",
+			Port = 8884,
+			Username = "mqttdeneme",
+			Password = "mqttdeneme",
+			ClientId = Guid.NewGuid()
+															};
+
 
 	private async Task ConnectToServer()
-	{
+		{
 		MqttFactory mqttFactory = new();
 		IMqttClient mqttClient = mqttFactory.CreateMqttClient();
 
@@ -82,12 +113,12 @@
 			.Build();
 
 		MqttClientConnectResult response = new();
-		try
-		{
+			try
+			{
 			response = await mqttClient.ConnectAsync(mqttOptions);
 		}
 		catch (Exception ex)
-		{
+			{
 			await IsConnectedChanged.InvokeAsync(false);
 			ErrorMessage = ex.Message;
 		}
@@ -99,21 +130,21 @@
 		.WithTopicFilter(f => f.WithTopic("intro"))
 		.Build();
 
-		try
-		{
+			try
+			{
 			await mqttClient.SubscribeAsync(mqttSubscribeOptions);
 			Console.WriteLine("MQTT client subscribed to \"intro\" topic.");
 			messagePage.mqttClient = mqttClient;
 		}
 		catch (Exception ex)
-		{
+			{
 			await IsConnectedChanged.InvokeAsync(false);
 			ErrorMessage = ex.Message;
-		}
+	}
 	}
 
 	private async Task ConnectedShow_Callback(MqttClientConnectedEventArgs e)
-	{
+		{
 		await IsConnectedChanged.InvokeAsync(true);
 		Console.WriteLine("MQTT client connected to the server.");
 
@@ -122,7 +153,7 @@
 	}
 
 	private async Task MessageReceived_Callback(MqttApplicationMessageReceivedEventArgs e)
-	{
+		{
 		string message = Encoding.UTF8.GetString(e.ApplicationMessage.Payload);
 		Console.WriteLine($"Message from \"{e.ApplicationMessage.Topic}\" topic: " + message);
 
@@ -134,4 +165,5 @@
 		await messagePage.CurrentMessagesChanged.InvokeAsync(allMessages.Last());
 		await Task.CompletedTask;
 	}
+	*/
 }

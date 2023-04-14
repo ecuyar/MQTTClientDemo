@@ -1,7 +1,7 @@
-﻿using MQTTnet.Client;
+﻿using MQTTListener.Dtos;
 using MQTTnet;
-using MQTTListener.Dtos;
-using MQTTnet.Server;
+using MQTTnet.Client;
+using System.Text;
 
 namespace MQTTListener.Holders
 {
@@ -10,6 +10,13 @@ namespace MQTTListener.Holders
 		public IMqttClient MqttClient { get; set; }
 		private readonly MqttFactory MqttFactory;
 		private ConnectionProps ConnectionProps { get; set; }
+
+		public bool? IsConnected { get; set; }
+		//[Parameter]
+		//public EventCallback<bool> IsConnectedChanged { get; set; }
+		public string? ErrorMessage { get; set; }
+		//public Messages messagePage { get; set; } = new();
+		public MessageHolder messageHolder = new(10);
 
 		public ConnectionHolder()
 		{
@@ -25,8 +32,19 @@ namespace MQTTListener.Holders
 			};
 		}
 
-		public async Task ConnectToServer()
+		public async Task ConnectToServer(string topic)
 		{
+			MqttClient.ConnectedAsync += ConnectedShow_Callback;
+			MqttClient.ApplicationMessageReceivedAsync += MessageReceived_Callback;
+			MqttClient.DisconnectedAsync += Disconnected_Callback;
+
+			if (MqttClient.IsConnected)
+			{
+				return;
+			}
+
+			//await MqttClient.ReconnectAsync();
+
 			var mqttOptions = new MqttClientOptionsBuilder()
 				.WithWebSocketServer(ConnectionProps.ServerIp)
 				.WithCredentials(ConnectionProps.Username, ConnectionProps.Password)
@@ -42,8 +60,62 @@ namespace MQTTListener.Holders
 			catch (Exception ex)
 			{
 				//await IsConnectedChanged.InvokeAsync(false);
-				//ErrorMessage = ex.Message;
+				IsConnected = false;
+				ErrorMessage = ex.Message;
+				Console.WriteLine(ex.Message);
+			}
+
+			var mqttSubscribeOptions = MqttFactory.CreateSubscribeOptionsBuilder()
+				.WithTopicFilter(f => f.WithTopic(topic))
+				.Build();
+
+			try
+			{
+				await MqttClient.SubscribeAsync(mqttSubscribeOptions);
+				Console.WriteLine($"{nameof(ConnectionHolder)}=> MQTT client subscribed to \"presentation\" topic.");
+				//messagePage.mqttClient = MqttClient;
+			}
+			catch (Exception ex)
+			{
+				IsConnected = false;
+				//await IsConnectedChanged.InvokeAsync(false);
+				ErrorMessage = ex.Message;
+				Console.WriteLine(ex.Message);
 			}
 		}
+
+		private async Task Disconnected_Callback(MqttClientDisconnectedEventArgs arg)
+		{
+			Console.WriteLine($"{nameof(ConnectionHolder)}=> MQTT client disconnected from the server.");
+			//MqttClient.Dispose();
+			IsConnected = false;
+			await Task.CompletedTask;
+		}
+
+		private async Task ConnectedShow_Callback(MqttClientConnectedEventArgs e)
+		{
+			Console.WriteLine($"{nameof(ConnectionHolder)}=> MQTT client connected to the server.");
+			IsConnected = true;
+			//await IsConnectedChanged.InvokeAsync(true);
+
+			//TODO Isconnected güncellenmiyor
+			await Task.CompletedTask;
+		}
+
+		public async Task MessageReceived_Callback(MqttApplicationMessageReceivedEventArgs e)
+		{
+			string message = Encoding.UTF8.GetString(e.ApplicationMessage.Payload);
+			Console.WriteLine($"{nameof(ConnectionHolder)}=> Message from \"{e.ApplicationMessage.Topic}\" topic: " + message);
+
+			messageHolder.AddMessage(message, e.ApplicationMessage.Topic);
+
+			//var allMessages = messageHolder.ShowMessages();
+			//messagePage.CurrentMessages = allMessages;
+
+			//await messagePage.CurrentMessagesChanged.InvokeAsync(allMessages.Last());
+			await Task.CompletedTask;
+		}
 	}
+
+
 }

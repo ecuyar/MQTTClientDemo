@@ -11,29 +11,29 @@
 			MessageList = new();
 		}
 
-		public void AddMessage(string message)
+		public void AddMessage(string message, string messageTopic = "")
 		{
 			int count = MessageList.Count;
 
 			if (count >= MessageCapacity)
 			{
-				RemoveLastMessage();
+				RemoveFirstMessage();
 			}
 
-			var m = new Message(count, message);
+			var m = new Message(count, message, messageTopic);
 			MessageList.Add(m);
 		}
 
 		public List<Message> ShowMessages()
 		{
-			return MessageList.OrderByDescending(x => x.IndexValue).ToList();
+			return MessageList.OrderBy(x => x.IndexValue).ToList();
 		}
 
-		private void RemoveLastMessage()
+		private void RemoveFirstMessage()
 		{
 			if (MessageList.Count >= MessageCapacity)
 			{
-				MessageList.RemoveAt(MessageList.Count - 1);
+				MessageList.RemoveAt(0);
 
 				foreach (var listItem in MessageList)
 				{
@@ -46,11 +46,13 @@
 		{
 			public int IndexValue { get; set; }
 			public string MessageString { get; set; }
+			public string MessageTopic { get; set; }
 
-			public Message(int index, string message)
+			public Message(int index, string message, string messageTopic = "")
 			{
 				IndexValue = index;
 				MessageString = message;
+				MessageTopic = messageTopic;
 			}
 		}
 	}

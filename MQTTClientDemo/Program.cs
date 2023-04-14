@@ -1,7 +1,6 @@
 ﻿using MQTTnet;
 using MQTTnet.Client;
 using System.Text.Json;
-using System.Xml;
 
 Console.WriteLine("Hello, MQTT Fellows!");
 

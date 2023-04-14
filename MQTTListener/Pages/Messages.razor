@@ -4,56 +4,88 @@
 @using Holders
 @using System.Text;
 
+@inject ConnectionHolder _mqttConnection
+
 <PageTitle>Messages</PageTitle>
 
 <h1>Messages</h1>
 
-<MudPaper Width="80%" Elevation="2">
-	<MudContainer Style="padding:20px;">
-		@if (CurrentMessages.Count > 0)
-		{
-			for (int i = 0; i < CurrentMessages.Count; i++)
+<MudPaper Width="100%" Style="display:flex;">
+
+	<MudPaper Width="50%" Elevation="2" Style="margin:10px;">
+		<h2 style="margin:10px;">Presentation Topic</h2>
+		<MudContainer Style="padding:20px;display:flex;flex-direction:column;">
+			@if (CurrentMessages.Count > 0)
 			{
-				<MudText>@CurrentMessages[i].MessageString</MudText>
+				@foreach (var item in CurrentMessages)
+				{
+					<MudText Style="background-color:#eeeeee;padding:0 10px;margin:1px;">@item.MessageString</MudText>
+				}
 			}
-		}
-		else
-		{
-			<MudText>No messages yet.</MudText>
-		}
-	</MudContainer>
+			else
+			{
+				<MudText>No messages yet.</MudText>
+			}
+		</MudContainer>
+	</MudPaper>
+
+	<MudPaper Width="50%" Elevation="2" Style="margin:10px;">
+		<h2 style="margin:10px;">All Topics</h2>
+		<MudContainer Style="padding:20px;display:flex;flex-direction:column;">
+			@if (CurrentMessages.Count > 0)
+			{
+				@foreach (var item in CurrentMessagesForAllTopic)
+				{
+					<MudText Style="background-color:#eeeeee;padding:0 10px;margin:1px 1px -1px 1px;;font-size:12px;">
+						@("Topic:" + item.MessageTopic)
+					</MudText>
+					<MudText Style="background-color:#eeeeee;padding:0 10px;margin:1px;">@item.MessageString</MudText>
+				}
+			}
+			else
+			{
+				<MudText>No messages yet.</MudText>
+			}
+		</MudContainer>
+	</MudPaper>
+
 </MudPaper>
 
 
 @code {
-	[CascadingParameter]
-	public List<MessageHolder.Message> CurrentMessages { get; set; } = new();
-	public EventCallback<MessageHolder.Message> CurrentMessagesChanged { get; set; }
-	[CascadingParameter]
-	public IMqttClient mqttClient { get; set; } = default!;
+	private List<MessageHolder.Message> CurrentMessages { get; set; } = new();
+	private List<MessageHolder.Message> CurrentMessagesForAllTopic { get; set; } = new();
 
-	private MessageHolder messageHolder = new(10);
+	private ConnectionHolder _allTopicsMqttClient = new();
 
-	protected override Task OnInitializedAsync()
+	protected override async Task OnInitializedAsync()
 	{
-		mqttClient.ApplicationMessageReceivedAsync += MessageReceived;
+		await _allTopicsMqttClient.ConnectToServer("#");
 
-		return base.OnInitializedAsync();
+		_allTopicsMqttClient.MqttClient.ApplicationMessageReceivedAsync += AllTopicsMessageReceived;
+
+		CurrentMessages = _mqttConnection.messageHolder.MessageList;
+		_mqttConnection.MqttClient.ApplicationMessageReceivedAsync += MessageReceived;
+
+		await base.OnInitializedAsync();
 	}
 
 	private async Task MessageReceived(MqttApplicationMessageReceivedEventArgs e)
 	{
-		string message = Encoding.UTF8.GetString(e.ApplicationMessage.Payload);
-		Console.WriteLine($"Message from \"{e.ApplicationMessage.Topic}\" topic: " + message);
-
-		messageHolder.AddMessage(message);
-
-		var allMessages = messageHolder.ShowMessages();
+		var allMessages = _mqttConnection.messageHolder.ShowMessages();
 		CurrentMessages = allMessages;
-
-		await CurrentMessagesChanged.InvokeAsync(allMessages.Last());
+		StateHasChanged();
+		//await CurrentMessagesChanged.InvokeAsync(allMessages.Last());
 		await Task.CompletedTask;
+	}
 
+	private async Task AllTopicsMessageReceived(MqttApplicationMessageReceivedEventArgs e)
+	{
+		var allMessages = _allTopicsMqttClient.messageHolder.ShowMessages();
+		CurrentMessagesForAllTopic = allMessages;
+		StateHasChanged();
+		//await CurrentMessagesChanged.InvokeAsync(allMessages.Last());
+		await Task.CompletedTask;
 	}
 
 }
